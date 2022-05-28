@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+  <head>      
+    <meta charset="utf-8">
+    <title>Press the alphabetically first letter</title>
+    <style>
+        /*disable all scrolling*/
+        html, body {height: 100%; overflow: hidden}
+
+
+        /*make nice table style*/
+        table {
+            border-collapse: collapse;
+            border: 2px solid black;
+            margin: 0 auto;
+            font-size: 200%;
+            border-bottom: 0px;
+        }
+        th:hover {
+            background-color: #f0f0f0;
+            /* set cursor to hand */
+            cursor: pointer;
+        }
+        td, th {
+            border: 2px solid black;
+            padding: 5px;
+            text-align: center;
+        }
+        td{
+            border-top: 0;
+            border-bottom: 0;
+        }
+        body{
+            width:300px;
+        }
+        .pane {
+            height:300px;
+        }
+        #title {
+            /* background-color: #f0f0f0; */
+            display: block;
+            /*center all content horizontall and vertically*/
+            /* display: flex; */
+            align-items: center;
+            justify-content: center;
+        }
+        button{
+            font-size: 200%;
+        }
+        #game {
+            /* background-color: #676666; */
+            display: none;
+        }
+        th {
+            width:30px;
+        }
+        #lowscore {
+            font-weight: bold;
+        }
+        #victorymessage{
+            font-weight: bold;
+            color:blue;
+
+        }
+    </style>
+  </head>
+  <body>
+    <h1>Press the alphabetically first letter</h1>
+
+    (lowscore: <span id="lowscore">10000.000</span> seconds)
+    <p></p>
+
+    <div class="pane" id="title">
+
+        <div id="victorymessage">
+            
+        </div>
+        <p></p>
+            Press the alphabetically first letter (in the topmost row). See how fast you can get through 30 letters!
+            <br>
+            <p>
+                
+
+        <button id="start">Start</button>
+    </div>
+    <div class="pane" id="game">
+        <progress value="0" max="30" id ="progressbar"></progress><br>
+    letter: <span id="progress">0</span>/30
+    <br>
+    time: <span id="time">0.0</span> seconds
+    <br>
+    <br>
+        <table  id="gameTable">
+            <tr>
+                <th>b</th>
+                <th>h</th>
+            </tr>    
+            <tr>
+                <td>b</td>
+                <td>h</td>
+            </tr>
+            <tr>
+                <td>b</td>
+                <td>h</td>
+            </tr>
+            <tr>
+                <td>b</td>
+                <td>h</td>
+            </tr>
+            <tr>
+                <td>b</td>
+                <td>h</td>
+            </tr>
+        </table>
+    </div>
+    <script>
+        var start_time = 0.0;
+        var timer = 0.0;
+        var lowscore = 1000000;
+        //if lowscore is set in localstorage load from there
+        if(localStorage.getItem("lowscore") != null){
+            lowscore = localStorage.getItem("lowscore");
+        }
+        var timer_active = false;
+        const timer_interval = 50;
+        const letter_count = 30;
+        const letter_col_count = 2;
+        var row_index = 0;
+        var error_count=0;
+        var letter_cols = [];
+        var gameTable = document.getElementById("gameTable");
+        var time_label = document.getElementById("time");
+        var progress_label = document.getElementById("progress");
+        var lowscore_label = document.getElementById("lowscore");
+        var progress_bar = document.getElementById("progressbar");
+        var victorymessage_label = document.getElementById("victorymessage");
+
+        function on_key_down(event){
+            //if enter, start new game
+            if(event.keyCode == 13){
+                startGame();
+                return;
+            }
+            //if non alphabetical character, ignore
+            if(event.keyCode < 65 || event.keyCode > 90){
+                return;
+            }
+            //print *character* pressed
+            console.log(event.key);
+            //check if the pressed key is the first letter of the current row
+            var foundcol=-1;
+            var failed=false;
+            for (var i=0;i<letter_col_count;i++){
+                var col_letter = letter_cols[i][row_index];
+                if (col_letter===event.key){
+                    foundcol=i;
+                }
+                if (col_letter<event.key){
+                    failed=true;
+                }
+            }
+            if (foundcol===-1){
+                failed=true;
+            } else {
+                timer_active=true;
+            }
+            if (failed){
+                error_count++;
+                timer+=3000;
+                //flash timer text red if not already red
+                if (time_label.style.color!=="red"){
+                    time_label.style.color="red";                    
+                    setTimeout(function(){
+                        time_label.style.color = "black";
+                    },100);
+                }                
+            } else {
+                row_index++;     
+                if (row_index>=letter_count){
+                    gameover();
+                }
+            }
+            setVisualState();
+        }
+        //hook up keydown event
+        document.addEventListener('keydown', on_key_down);
+
+        function header_touch_event(index){
+            return function(event){
+                console.log("pressed col"+index);
+                console.log(event);
+                //call on_key_down
+                on_key_down({key:letter_cols[index][row_index]});
+                event.preventDefault();                
+            }            
+        }
+        for (var i=0;i<letter_col_count;i++){
+            var cell = gameTable.rows[0].cells[i];
+            cell.addEventListener("pointerdown", header_touch_event(i));
+        }
+
+        function generateLetterCols(){
+            //fill letters array with letter_count random letters from a-z
+            letter_cols=[];
+            for (var ci=0;ci<letter_col_count;ci++){
+                var letters=[];
+                for(var i = 0; i < letter_count; i++){
+                    letters.push(String.fromCharCode(Math.floor(Math.random() * 26) + 97));
+                }
+                letter_cols.push(letters);
+            }
+            window.console.log(letter_cols);
+        }
+
+        function setVisualState(){
+            //iterate through rows of gameTable
+            for (var ri=0;ri<gameTable.rows.length;ri++){
+                //iterate through columns of row
+                var row = gameTable.rows[ri];
+                for (var ci=0;ci<row.cells.length;ci++){
+                    //figure out row of letter_cols to take
+                    var letter_row_index = ri + row_index;
+                    if (letter_row_index !== 0 && row_index===0){
+                        row.cells[ci].innerHTML = ".";
+                    } else if (letter_row_index<0 || letter_row_index>=letter_count){
+                        //out of bounds
+                        row.cells[ci].innerHTML = ".";
+                    } else {
+                        //in bounds
+                        var letter = letter_cols[ci][letter_row_index];
+                        row.cells[ci].innerHTML = letter;
+                    }
+                }
+            }
+            //set timer text
+            time_label.innerHTML = (timer/1000).toFixed(3);
+            //set progress text
+            progress_label.innerHTML = (row_index+1).toString();
+            //set progress bar
+            progress_bar.value = row_index;
+            setGlobalGui();
+        }
+
+        function setGlobalGui(){
+            //set lowscore text
+            lowscore_label.innerHTML = (lowscore/1000).toFixed(3);
+        }
+        setGlobalGui();
+        function gameover(){
+            //stop timer
+            timer_active=false;
+            document.getElementById("title").style.display = "block";
+            document.getElementById("game").style.display = "none";
+            //check lowscore
+            if (timer<lowscore){
+                lowscore=timer;
+                //save to cache
+                localStorage.setItem("lowscore",lowscore);
+                victorymessage_label.innerText="Game Over:\nYou finished in "+((timer/1000).toFixed(3))+" seconds with "+ error_count+" error"+(error_count===1?"":"s")+".\nNew lowscore!";
+                setGlobalGui();
+            } else {
+                victorymessage_label.innerText="Game Over:\nYou finished in "+((timer/1000).toFixed(3))+" seconds with "+ error_count+" error"+(error_count===1?"":"s")+".";
+
+            }
+
+        }
+        function startGame(){
+            if (document.getElementById("game").style.display == "block"){
+                return;
+            }
+            window.console.log("startGame");	
+            generateLetterCols();
+            //set start time, reset timer
+            start_time = new Date().getTime();
+            timer = 0.0;
+            setVisualState();
+            //make title invisible, game invisible
+            document.getElementById("title").style.display = "none";
+            document.getElementById("game").style.display = "block";
+            //set timer with 60ms interval
+            row_index=0;
+            error_count=0;
+            timer_active = false;
+            setInterval(function(){
+                if (timer_active){
+                    timer += timer_interval;
+                    setVisualState();
+                }
+            }, timer_interval);
+            
+        }
+        document.getElementById("start").addEventListener("click", startGame);
+        function tick(){
+
+        }
+
+    </script>
+  </body>
+</html>
